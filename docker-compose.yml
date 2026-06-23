@@ -1,0 +1,136 @@
+services:
+  # ─────────────────────────────────────────
+  # PostgreSQL — données transactionnelles
+  # ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: cinelog_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cinelog
+      POSTGRES_USER: cinelog
+      POSTGRES_PASSWORD: cinelog_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cinelog -d cinelog"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # MongoDB — catalogue films
+  # ─────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: cinelog_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: cinelog
+      MONGO_INITDB_ROOT_PASSWORD: cinelog_pass
+      MONGO_INITDB_DATABASE: cinelog
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./db/mongo/init.js:/docker-entrypoint-initdb.d/01_init.js
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # Redis — cache et temps réel
+  # ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: cinelog_redis
+    restart: unless-stopped
+    command: redis-server --requirepass cinelog_pass --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "cinelog_pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────
+  # Neo4j — graphe social et recommandations
+  # ─────────────────────────────────────────
+  neo4j:
+    image: neo4j:5
+    container_name: cinelog_neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/cinelog_pass
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - ./db/neo4j:/var/lib/neo4j/import
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # Exécute le script Cypher une seule fois au démarrage
+  neo4j-init:
+    image: neo4j:5
+    container_name: cinelog_neo4j_init
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - ./db/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
+    command: >
+      bash -c "cypher-shell -a bolt://neo4j:7687 -u neo4j -p cinelog_pass --file /var/lib/neo4j/import/init.cypher && echo 'Neo4j: contraintes et index initialisés'"
+    restart: "no"
+
+  # ─────────────────────────────────────────
+  # Application Next.js
+  # ─────────────────────────────────────────
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: cinelog_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://cinelog:cinelog_pass@postgres:5432/cinelog
+      MONGODB_URI: mongodb://cinelog:cinelog_pass@mongodb:27017/cinelog?authSource=admin
+      REDIS_URL: redis://:cinelog_pass@redis:6379
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: cinelog_pass
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+  neo4j_data:
+  neo4j_logs:

@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cl-bg:       #14181C;
+  --cl-surface:  #2C3440;
+  --cl-border:   #445566;
+  --cl-green:    #00AB6C;
+  --cl-slate:    #9AACB8;
+  --cl-orange:   #F90;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: var(--cl-bg);
+  color: var(--cl-slate);
+  font-family: "Graphik", "Source Sans Pro", system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* ── Scrollbar ─────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--cl-bg); }
+::-webkit-scrollbar-thumb { background: var(--cl-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cl-slate); }
+
+/* ── Étoiles ───────────────────────────────── */
+.star-filled { color: var(--cl-orange); }
+.star-half   { color: var(--cl-orange); }
+.star-empty  { color: var(--cl-border); }
+
+/* ── Poster overlay ────────────────────────── */
+.poster-card {
+  @apply relative overflow-hidden rounded cursor-pointer;
+  transition: transform 0.15s ease;
+}
+.poster-card:hover { transform: translateY(-4px); }
+.poster-card:hover .poster-overlay {
+  opacity: 1;
+}
+.poster-overlay {
+  @apply absolute inset-0 flex flex-col items-center justify-end pb-3;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* ── Badge tendance ────────────────────────── */
+.badge-trending {
+  @apply text-xs font-semibold px-2 py-0.5 rounded;
+  background: var(--cl-orange);
+  color: #000;
+}
+
+/* ── Input style ───────────────────────────── */
+.cl-input {
+  @apply w-full rounded px-3 py-2 text-sm outline-none;
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border);
+  color: #fff;
+  transition: border-color 0.15s;
+}
+.cl-input:focus { border-color: var(--cl-green); }
+
+/* ── Bouton principal ──────────────────────── */
+.cl-btn {
+  @apply rounded px-4 py-2 text-sm font-semibold transition-colors;
+  background: var(--cl-green);
+  color: #fff;
+}
+.cl-btn:hover { background: #00c07a; }
+.cl-btn-ghost {
+  @apply rounded px-4 py-2 text-sm font-semibold border transition-colors;
+  border-color: var(--cl-border);
+  color: var(--cl-slate);
+}
+.cl-btn-ghost:hover { border-color: var(--cl-slate); color: #fff; }
